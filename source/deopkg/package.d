@@ -18,6 +18,28 @@ module deopkg;
 @safe:
 
 import packagekit.plugin;
+import pyd.pyd;
+import pyd.embedded;
+import std.stdio : writeln;
+import std.experimental.logger;
+
+/**
+ * Initialise python
+ */
+shared static this() @trusted
+{
+    info("Initialising python");
+    py_init();
+}
+
+/**
+ * Kill python
+ */
+shared static ~this() @trusted
+{
+    info("Shutting down python");
+    py_finish();
+}
 
 /** 
  * Hook up the packagekit plugin with our own system
