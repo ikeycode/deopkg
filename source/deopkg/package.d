@@ -14,3 +14,5 @@
  */
 
 module deopkg;
+
+static import packagekit.backend;

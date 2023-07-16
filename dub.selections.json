@@ -1,6 +1,7 @@
 {
 	"fileVersion": 1,
 	"versions": {
+		"packagekit-d": {"path":"../packagekit-d"},
 		"pyd": "0.14.4"
 	}
 }
