@@ -23,6 +23,8 @@ import pyd.embedded;
 import std.stdio : writeln;
 import std.experimental.logger;
 
+import packagekit.pkg;
+
 /**
  * Initialise python
  */
@@ -64,5 +66,20 @@ public final class EopkgPlugin : Plugin
         super("deopkg", "eopkg support", "Serpent OS Developers", [
             "application/x-solus-package"
         ]);
+    }
+
+    override void listPackages(PkBackendJob* job, SafeBitField!PkFilterEnum filters) @trusted
+    {
+        // TODO: Require ID upfront.
+        auto pkg = Package.create();
+        pkg.id = "firefox;115.0.2-220;x86_64;fake";
+        pkg.summary = "I am a fakebackend";
+        // TODO: Fix enum names!
+        pkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
+        auto list = PackageList.create(1);
+        list ~= pkg;
+
+        // TODO: Unfudge this api!
+        job.pk_backend_job_packages(list.pointer);
     }
 }
