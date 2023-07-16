@@ -1,9 +1,9 @@
 {
 	"authors": [
-		"Ikey Doherty"
+		"Serpent OS Developers"
 	],
 	"targetType": "dynamicLibrary",
-	"copyright": "Copyright © 2023, Ikey Doherty",
+	"copyright": "Copyright © 2023, Serpent OS Developers",
 	"dependencies": {
 		"pyd": "~>0.14.4",
 		"packagekit-d": {
