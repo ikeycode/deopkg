@@ -5,15 +5,15 @@
  */
 
 /**
- * deopkg
+ * deopkg.pk_plugin
  *
- * Main portions of deopkg
+ * Provides a PackageKit backend
  *
  * Authors: Copyright © 2023 Serpent OS Developers
  * License: Zlib
  */
 
-module deopkg;
+module deopkg.pk_plugin;
 
 @safe:
 
