@@ -1,7 +1,11 @@
 {
 	"fileVersion": 1,
 	"versions": {
+		"asdf": "0.7.17",
+		"mir-algorithm": "3.21.0",
+		"mir-core": "1.6.0",
 		"packagekit-d": {"path":"../packagekit-d"},
-		"pyd": "0.14.4"
+		"pyd": "0.14.4",
+		"silly": "1.1.1"
 	}
 }
