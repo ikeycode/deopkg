@@ -13,5 +13,4 @@
  * License: Zlib
  */
 
-import deopkg.context;
 import deopkg.pk_plugin;

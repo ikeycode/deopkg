@@ -18,12 +18,7 @@ module deopkg.pk_plugin;
 @safe:
 
 import packagekit.plugin;
-import pyd.pyd;
-import pyd.embedded;
-import std.stdio : writeln;
-
 import packagekit.pkg;
-import deopkg.context : EopkgContext;
 
 /** 
  * Hook up the packagekit plugin with our own system
@@ -48,15 +43,6 @@ public final class EopkgPlugin : Plugin
         super("deopkg", "eopkg support", "Serpent OS Developers", [
             "application/x-solus-package"
         ]);
-        context = new EopkgContext();
-    }
-
-    ~this()
-    {
-        if (context is null)
-            return;
-        context.close();
-        context = null;
     }
 
     override void listPackages(PkBackendJob* job, SafeBitField!PkFilterEnum filters) @trusted
@@ -73,8 +59,4 @@ public final class EopkgPlugin : Plugin
         // TODO: Unfudge this api!
         job.pk_backend_job_packages(list.pointer);
     }
-
-private:
-
-    EopkgContext context;
 }
