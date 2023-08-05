@@ -48,6 +48,17 @@ struct EopkgPackage
     string name;
     string version_;
     string summary;
+
+    // dfmt off
+    static alias PyWrapped = wrap_struct!(
+        EopkgPackage,
+        ModuleName!"deopkg",
+        Member!("pkgID", Mode!"rw"),
+        Member!("name", Mode!"rw"),
+        Member!("version_", PyName!"version", Mode!"rw"),
+        Member!("summary", Mode!"rw")
+    );
+    // dfmt on
 }
 
 /**
@@ -58,18 +69,13 @@ static int enumerator(ref WalkieTalkie comms) @trusted
     // add the eopkg module
     on_py_init({ add_module!(ModuleName!"deopkg"); });
     py_init();
-
-    // Wrap EopkgPackage as a usable type (deopkg.EopkgPackage)
-    wrap_struct!(EopkgPackage, ModuleName!"deopkg", Member!("pkgID",
-            Mode!"rw"), Member!("name", Mode!"rw"), Member!("version_",
-            PyName!"version", Mode!"rw"), Member!("summary", Mode!"rw"),)();
+    EopkgPackage.PyWrapped();
 
     // Serialize all EopkgPackage from getPackages into asdf return
     auto serial = jsonSerializer(&comms.write);
     alias getPackages = py_def!(import("getPackages.py"), "deopkg",
             PydInputRange!EopkgPackage function());
-    auto packages = getPackages().array;
-    serial.serializeValue(packages);
+    serial.serializeValue(getPackages.array);
     serial.flush();
     comms.stop();
     return 0;
