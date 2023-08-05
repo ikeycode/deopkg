@@ -1,12 +1,7 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"mir-algorithm": "3.21.0",
-		"mir-core": "1.6.0",
-		"mir-cpuid": "1.2.11",
-		"mir-ion": "2.2.0",
 		"packagekit-d": {"path":"../packagekit-d"},
-		"pyd": "0.14.4",
-		"silly": "1.1.1"
+		"pyd": "0.14.4"
 	}
 }
