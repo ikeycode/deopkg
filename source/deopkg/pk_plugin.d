@@ -19,6 +19,14 @@ module deopkg.pk_plugin;
 
 import packagekit.plugin;
 import packagekit.pkg;
+import packagekit.walkietalkie;
+import packagekit.forkworker;
+
+import asdf;
+import std.algorithm : map, joiner;
+import pyd.pyd;
+import pyd.embedded;
+import std.string : format;
 
 /** 
  * Hook up the packagekit plugin with our own system
@@ -28,6 +36,77 @@ import packagekit.pkg;
 export extern (C) Plugin packagekit_d_plugin_create()
 {
     return new EopkgPlugin();
+}
+
+/**
+ * Basic eopkg
+ */
+struct EopkgPackage
+{
+    string pkgID;
+    string name;
+    string version_;
+    string summary;
+}
+
+/**
+ * FIXME: Use cleaner code!!
+ */
+static int enumerator(ref WalkieTalkie comms) @trusted
+{
+    py_init();
+    auto ctx = new InterpContext();
+
+    ctx.pisi = py_import("pisi");
+    ctx.pdb = ctx.py_eval("pisi.db.packagedb.PackageDB()");
+    auto availablePkgs = ctx.py_eval("[pdb.get_package_repo(x) for x in pdb.list_packages(None)]");
+
+    auto serial = jsonSerializer(&comms.write);
+    EopkgPackage[] pkgs;
+
+    foreach (returnedTuple; availablePkgs)
+    {
+        auto availablePkg = returnedTuple[0];
+        auto repo = returnedTuple[1].to_d!string;
+        auto name = availablePkg.name.to_d!string;
+        auto vers = availablePkg.getattr("version").to_d!string;
+        auto rel = availablePkg.release.to_d!string;
+        auto arch = availablePkg.architecture.to_d!string;
+        auto summary = availablePkg.summary.to_d!string;
+
+        EopkgPackage tmp = {
+            format!"%s;%s-%s;%s;%s"(name, vers, rel, arch, repo), name, vers, summary,
+        };
+        pkgs ~= tmp;
+    }
+    imported!"std.stdio".writeln("sending");
+    serial.serializeValue(pkgs);
+    imported!"std.stdio".writeln("done");
+    serial.flush();
+    comms.stop();
+    return 0;
+}
+
+/**
+ * FIXME: Use cleaner code!
+ */
+static PackageList test_enumeration() @trusted
+{
+    PackageList pl = PackageList.create();
+    auto comms = walkieTalkie();
+    auto child = runForked(&enumerator, comms);
+    imported!"std.stdio".writeln("awaiting ppkg");
+    foreach (pkg; comms.reader.parseJsonByLine.map!(o => o.byElement).joiner)
+    {
+        EopkgPackage ppkg = pkg.deserialize!EopkgPackage;
+        auto npkg = Package.create();
+        npkg.id = ppkg.pkgID;
+        npkg.summary = ppkg.summary;
+        npkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
+        pl ~= npkg;
+    }
+    child.wait;
+    return pl;
 }
 
 /** 
@@ -47,16 +126,8 @@ public final class EopkgPlugin : Plugin
 
     override void listPackages(PkBackendJob* job, SafeBitField!PkFilterEnum filters) @trusted
     {
-        // TODO: Require ID upfront.
-        auto pkg = Package.create();
-        pkg.id = "firefox;115.0.2-220;x86_64;fake";
-        pkg.summary = "I am a fakebackend";
-        // TODO: Fix enum names!
-        pkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
-        auto list = PackageList.create(1);
-        list ~= pkg;
-
+        auto enu = test_enumeration();
         // TODO: Unfudge this api!
-        job.pk_backend_job_packages(list.pointer);
+        job.pk_backend_job_packages(enu.pointer);
     }
 }
