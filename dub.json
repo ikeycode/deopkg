@@ -2,27 +2,28 @@
 	"authors": [
 		"Serpent OS Developers"
 	],
-	"targetType": "dynamicLibrary",
 	"copyright": "Copyright © 2023, Serpent OS Developers",
 	"dependencies": {
-		"pyd": "~>0.14.4",
+		"mir-ion": "~>2.2.0",
 		"packagekit-d": {
 			"path": "../packagekit-d"
-		}
+		},
+		"pyd": "~>0.14.4"
 	},
 	"description": "Encapsulation of eopkg API",
-	"license": "Zlib",
-	"name": "deopkg",
-	"subConfigurations": {
-		"pyd": "python27"
-	},
 	"dflags-ldc": [
 		"--checkaction=C",
 		"--fvisibility=hidden",
 		"-L-Wl,--version-script=symbols.ver"
 	],
+	"license": "Zlib",
+	"name": "deopkg",
 	"stringImportPaths": [
 		"python"
 	],
-	"targetName": "pk_backend_deopkg"
+	"subConfigurations": {
+		"pyd": "python27"
+	},
+	"targetName": "pk_backend_deopkg",
+	"targetType": "dynamicLibrary"
 }
