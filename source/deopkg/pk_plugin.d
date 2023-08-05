@@ -27,6 +27,7 @@ import std.algorithm : map, joiner;
 import pyd.pyd;
 import pyd.embedded;
 import std.string : format;
+import std.array : array;
 
 /** 
  * Hook up the packagekit plugin with our own system
@@ -50,38 +51,25 @@ struct EopkgPackage
 }
 
 /**
- * FIXME: Use cleaner code!!
+ * Convenience wrapper to find all packages
  */
 static int enumerator(ref WalkieTalkie comms) @trusted
 {
+    // add the eopkg module
+    on_py_init({ add_module!(ModuleName!"deopkg"); });
     py_init();
-    auto ctx = new InterpContext();
 
-    ctx.pisi = py_import("pisi");
-    ctx.pdb = ctx.py_eval("pisi.db.packagedb.PackageDB()");
-    auto availablePkgs = ctx.py_eval("[pdb.get_package_repo(x) for x in pdb.list_packages(None)]");
+    // Wrap EopkgPackage as a usable type (deopkg.EopkgPackage)
+    wrap_struct!(EopkgPackage, ModuleName!"deopkg", Member!("pkgID",
+            Mode!"rw"), Member!("name", Mode!"rw"), Member!("version_",
+            PyName!"version", Mode!"rw"), Member!("summary", Mode!"rw"),)();
 
+    // Serialize all EopkgPackage from getPackages into asdf return
     auto serial = jsonSerializer(&comms.write);
-    EopkgPackage[] pkgs;
-
-    foreach (returnedTuple; availablePkgs)
-    {
-        auto availablePkg = returnedTuple[0];
-        auto repo = returnedTuple[1].to_d!string;
-        auto name = availablePkg.name.to_d!string;
-        auto vers = availablePkg.getattr("version").to_d!string;
-        auto rel = availablePkg.release.to_d!string;
-        auto arch = availablePkg.architecture.to_d!string;
-        auto summary = availablePkg.summary.to_d!string;
-
-        EopkgPackage tmp = {
-            format!"%s;%s-%s;%s;%s"(name, vers, rel, arch, repo), name, vers, summary,
-        };
-        pkgs ~= tmp;
-    }
-    imported!"std.stdio".writeln("sending");
-    serial.serializeValue(pkgs);
-    imported!"std.stdio".writeln("done");
+    alias getPackages = py_def!(import("getPackages.py"), "deopkg",
+            PydInputRange!EopkgPackage function());
+    auto packages = getPackages().array;
+    serial.serializeValue(packages);
     serial.flush();
     comms.stop();
     return 0;
