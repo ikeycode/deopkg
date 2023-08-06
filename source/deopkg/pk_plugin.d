@@ -63,6 +63,11 @@ struct EopkgPackage
 
 /**
  * Convenience wrapper to find all packages
+ *
+ * Params:
+ *    comms = socketpair for comms
+ *
+ * Returns: Numeric status code (subprocess)
  */
 static int enumerator(ref WalkieTalkie comms) @trusted
 {
@@ -82,7 +87,7 @@ static int enumerator(ref WalkieTalkie comms) @trusted
 }
 
 /**
- * FIXME: Use cleaner code!
+ * FIXME: Port to eopkg_enumerator, merge to SQLite3 DB
  */
 static PackageList test_enumeration() @trusted
 {
