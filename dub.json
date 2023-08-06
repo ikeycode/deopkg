@@ -16,6 +16,7 @@
 		"--fvisibility=hidden",
 		"-L-Wl,--version-script=symbols.ver"
 	],
+	"libs": ["sqlite3"],
 	"license": "Zlib",
 	"name": "deopkg",
 	"stringImportPaths": [
