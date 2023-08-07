@@ -57,6 +57,10 @@ public final class EopkgPlugin : Plugin
                 {
                     return false;
                 }
+                if (filters.contains(PkFilterEnum.PK_FILTER_ENUM_INSTALLED) && !eopkg.installed)
+                {
+                    return false;
+                }
                 return true;
             })
                 .map!((eopkg) {
