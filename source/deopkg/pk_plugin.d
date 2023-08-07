@@ -48,17 +48,18 @@ public final class EopkgPlugin : Plugin
         ]);
     }
 
-    override void listPackages(scope ref BackendJob job, SafeBitField!PkFilterEnum filters) @trusted
+    override void listPackages(scope ref BackendJob job, SafeBitField!PkFilterEnum filters)
     {
         PackageList pl = PackageList.create();
-        eopkgEnumerator[].map!((eopkg) {
-            auto pkg = Package.create();
-            pkg.id = eopkg.pkgID;
-            pkg.summary = eopkg.summary;
-            pkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
-            return pkg;
-        })
-            .each!(p => pl ~= p);
+        () @trusted {
+            eopkgEnumerator[].map!((eopkg) {
+                auto pkg = Package.create();
+                pkg.id = eopkg.pkgID;
+                pkg.summary = eopkg.summary;
+                pkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
+                return pkg;
+            }).each!(p => pl ~= p);
+        }();
         job.addPackages(pl);
     }
 }
