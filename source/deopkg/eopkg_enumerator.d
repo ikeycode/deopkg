@@ -69,6 +69,8 @@ public struct EopkgPackage
      */
     string homepage;
 
+    bool installed;
+
     // dfmt off
     static alias PyWrapped = wrap_struct!(
         EopkgPackage,
@@ -80,6 +82,7 @@ public struct EopkgPackage
         Member!("summary", Mode!"rw"),
         Member!("description", Mode!"rw"),
         Member!("homepage", Mode!"rw"),
+        Member!("installed", Mode!"rw"),
     );
 }
 

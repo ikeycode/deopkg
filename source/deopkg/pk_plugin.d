@@ -21,7 +21,7 @@ import packagekit.plugin;
 import packagekit.pkg;
 
 import deopkg.eopkg_enumerator;
-import std.algorithm : map, each;
+import std.algorithm : filter, map, each;
 
 /** 
  * Hook up the packagekit plugin with our own system
@@ -52,13 +52,28 @@ public final class EopkgPlugin : Plugin
     {
         PackageList pl = PackageList.create();
         () @trusted {
-            eopkgEnumerator[].map!((eopkg) {
-                auto pkg = Package.create();
-                pkg.id = eopkg.pkgID;
-                pkg.summary = eopkg.summary;
-                pkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
-                return pkg;
-            }).each!(p => pl ~= p);
+            eopkgEnumerator[].filter!((eopkg) {
+                if (filters.contains(PkFilterEnum.PK_FILTER_ENUM_NOT_INSTALLED) && eopkg.installed)
+                {
+                    return false;
+                }
+                return true;
+            })
+                .map!((eopkg) {
+                    auto pkg = Package.create();
+                    pkg.id = eopkg.pkgID;
+                    pkg.summary = eopkg.summary;
+                    if (eopkg.installed)
+                    {
+                        pkg.info = PkInfoEnum.PK_INFO_ENUM_INSTALLED;
+                    }
+                    else
+                    {
+                        pkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
+                    }
+                    return pkg;
+                })
+                .each!(p => pl ~= p);
         }();
         job.addPackages(pl);
     }
