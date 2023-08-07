@@ -19,15 +19,9 @@ module deopkg.pk_plugin;
 
 import packagekit.plugin;
 import packagekit.pkg;
-import packagekit.walkietalkie;
-import packagekit.forkworker;
 
-import asdf;
-import std.algorithm : map, joiner;
-import pyd.pyd;
-import pyd.embedded;
-import std.string : format;
-import std.array : array;
+import deopkg.eopkg_enumerator;
+import std.algorithm : map, each;
 
 /** 
  * Hook up the packagekit plugin with our own system
@@ -37,75 +31,6 @@ import std.array : array;
 export extern (C) Plugin packagekit_d_plugin_create()
 {
     return new EopkgPlugin();
-}
-
-/**
- * Basic eopkg
- */
-struct EopkgPackage
-{
-    string pkgID;
-    string name;
-    string version_;
-    string summary;
-
-    // dfmt off
-    static alias PyWrapped = wrap_struct!(
-        EopkgPackage,
-        ModuleName!"deopkg",
-        Member!("pkgID", Mode!"rw"),
-        Member!("name", Mode!"rw"),
-        Member!("version_", PyName!"version", Mode!"rw"),
-        Member!("summary", Mode!"rw")
-    );
-    // dfmt on
-}
-
-/**
- * Convenience wrapper to find all packages
- *
- * Params:
- *    comms = socketpair for comms
- *
- * Returns: Numeric status code (subprocess)
- */
-static int enumerator(ref WalkieTalkie comms) @trusted
-{
-    // add the eopkg module
-    on_py_init({ add_module!(ModuleName!"deopkg"); });
-    py_init();
-    EopkgPackage.PyWrapped();
-
-    // Serialize all EopkgPackage from getPackages into asdf return
-    auto serial = jsonSerializer(&comms.write);
-    alias getPackages = py_def!(import("getPackages.py"), "deopkg",
-            PydInputRange!EopkgPackage function());
-    serial.serializeValue(getPackages.array);
-    serial.flush();
-    comms.stop();
-    return 0;
-}
-
-/**
- * FIXME: Port to eopkg_enumerator, merge to SQLite3 DB
- */
-static PackageList test_enumeration() @trusted
-{
-    PackageList pl = PackageList.create();
-    auto comms = walkieTalkie();
-    auto child = runForked(&enumerator, comms);
-    imported!"std.stdio".writeln("awaiting ppkg");
-    foreach (pkg; comms.reader.parseJsonByLine.map!(o => o.byElement).joiner)
-    {
-        EopkgPackage ppkg = pkg.deserialize!EopkgPackage;
-        auto npkg = Package.create();
-        npkg.id = ppkg.pkgID;
-        npkg.summary = ppkg.summary;
-        npkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
-        pl ~= npkg;
-    }
-    child.wait;
-    return pl;
 }
 
 /** 
@@ -125,8 +50,15 @@ public final class EopkgPlugin : Plugin
 
     override void listPackages(PkBackendJob* job, SafeBitField!PkFilterEnum filters) @trusted
     {
-        auto enu = test_enumeration();
+        PackageList pl = PackageList.create();
+        eopkgEnumerator[].map!((eopkg) {
+            auto pkg = Package.create();
+            pkg.id = eopkg.pkgID;
+            pkg.summary = eopkg.summary;
+            pkg.info = PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
+            return pkg;
+        }).each!(p => pl ~= p);
         // TODO: Unfudge this api!
-        job.pk_backend_job_packages(enu.pointer);
+        job.pk_backend_job_packages(pl.pointer);
     }
 }

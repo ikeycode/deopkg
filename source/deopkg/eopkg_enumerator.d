@@ -18,6 +18,12 @@ module deopkg.eopkg_enumerator;
 @safe:
 
 import std.stdint : uint64_t;
+import pyd.pyd;
+import pyd.embedded;
+import packagekit.walkietalkie;
+import packagekit.forkworker;
+import std.algorithm : map, joiner;
+import asdf;
 
 public alias Release = uint64_t;
 
@@ -62,6 +68,19 @@ public struct EopkgPackage
      * Upstream homepage
      */
     string homepage;
+
+    // dfmt off
+    static alias PyWrapped = wrap_struct!(
+        EopkgPackage,
+        ModuleName!"deopkg",
+        Member!("pkgID", Mode!"rw"),
+        Member!("name", Mode!"rw"),
+        Member!("version_", PyName!"version", Mode!"rw"),
+        Member!("release", Mode!"rw"),
+        Member!("summary", Mode!"rw"),
+        Member!("description", Mode!"rw"),
+        Member!("homepage", Mode!"rw"),
+    );
 }
 
 /** 
@@ -74,6 +93,45 @@ public struct EopkgPackage
  */
 public struct EopkgEnumerator
 {
-    @disable this();
-    @disable this(this);
+    /** 
+     * Communicate with getPackages.py
+     *
+     * Returns: Exit code indicating success
+     */
+    private static int packageEnumerator(ref WalkieTalkie comms) @trusted
+    {
+        // add the eopkg module
+        on_py_init({ add_module!(ModuleName!"deopkg"); });
+        py_init();
+        EopkgPackage.PyWrapped();
+
+        // Serialize all EopkgPackage from getPackages into asdf return
+        auto serial = jsonSerializer(&comms.write);
+        alias getPackages = py_def!(import("getPackages.py"), "deopkg",
+                PydInputRange!EopkgPackage function());
+        serial.serializeValue(getPackages());
+        serial.flush();
+        comms.stop();
+        return 0;
+    }
+
+    /** 
+     * Returns: A range over all packages
+     */
+    auto opSlice() @trusted
+    {
+        auto comms = walkieTalkie();
+        const child = runForked(&packageEnumerator, comms);
+
+        return comms.reader
+            .parseJsonByLine
+            .map!(o => o.byElement)
+            .joiner
+            .map!(e => e.deserialize!EopkgPackage);
+    }
 }
+
+/** 
+ * Convenience function: Create new eopkgEnumerator
+ */
+auto eopkgEnumerator() @trusted => EopkgEnumerator();
