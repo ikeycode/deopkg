@@ -23,6 +23,9 @@ def getPackages():
                 repo)
 
         d.name = pkgID
-        d.summary = pkg.summary["en"]
         d.version = pkg.version
+        d.release = long(pkg.release)
+        d.summary = pkg.summary["en"]
+        d.description = pkg.description["en"]
+        d.homepage = pkg.source.homepage
         yield d
