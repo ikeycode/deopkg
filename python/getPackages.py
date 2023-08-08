@@ -38,9 +38,12 @@ def getPackages():
         installed = idb.get_package(pkgID) if idb.has_package(pkgID) else None
         available, repo = pdb.get_package_repo(pkgID) if pdb.has_package(pkgID) else (None, None)
 
-        if installed is not None:
-            d = asDeopkg(installed)
+        if installed is not None and repo is not None:
+            data = "installed:{}".format(repo)
+            d = asDeopkg(installed, data)
             d.installed = True
             yield d
+        if installed is not None and repo is None:
+            yield asDeopkg(installed)
         if available is not None:
             yield asDeopkg(available, repo)
