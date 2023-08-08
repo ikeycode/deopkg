@@ -66,7 +66,19 @@ public final class EopkgCache
      */
     void refresh() @trusted
     {
+        import core.stdc.stdio : puts, printf;
+
+        puts(" -> begin enumerate");
+        ulong nPkgs;
+        scope (exit)
+            printf(" -> end enumerate, %d packages found. Resume normal startup\n", nPkgs);
+
         rebuildSchema();
+        foreach (pkg; eopkgEnumerator[])
+        {
+            if (!pkg.installed)
+                nPkgs += 1;
+        }
     }
 
 private:

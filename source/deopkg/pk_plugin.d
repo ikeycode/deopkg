@@ -47,7 +47,10 @@ public final class EopkgPlugin : Plugin
         super("deopkg", "eopkg support", "Serpent OS Developers", [
             "application/x-solus-package"
         ]);
+    }
 
+    override void initialize()
+    {
         cache = new EopkgCache();
         // TODO: Don't do this on every startup.
         cache.refresh();
