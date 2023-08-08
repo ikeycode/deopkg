@@ -20,6 +20,7 @@ module deopkg.eopkg_cache;
 import etc.c.sqlite3;
 import std.exception : enforce;
 import std.string : fromStringz;
+import deopkg.eopkg_enumerator;
 
 /** 
  * Our EopkgCache simply wraps the internal DBs into something that is quicker to access
@@ -38,6 +39,13 @@ public final class EopkgCache
             return sqlite3_open("/var/lib/PackageKit/deopkg.db", &db);
         }();
         enforce(code == 0);
+
+        // prepared statement to bind package imports
+        code = () @trusted {
+            static immutable char[] zsql = import("importPkg.sql");
+            return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &stmt, null);
+        }();
+        enforce(code == 0);
     }
 
     /** 
@@ -47,6 +55,7 @@ public final class EopkgCache
     {
         if (db !is null)
         {
+            sqlite3_finalize(stmt);
             sqlite3_close(db);
             db = null;
         }
@@ -55,7 +64,7 @@ public final class EopkgCache
     /** 
      * Refresh the db
      */
-    void refresh()
+    void refresh() @trusted
     {
         rebuildSchema();
     }
@@ -79,4 +88,5 @@ private:
     }
 
     sqlite3* db;
+    sqlite3_stmt* stmt;
 }
