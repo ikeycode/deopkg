@@ -22,6 +22,7 @@ import packagekit.pkg;
 
 import deopkg.eopkg_enumerator;
 import std.algorithm : filter, map, each;
+import deopkg.eopkg_cache;
 
 /** 
  * Hook up the packagekit plugin with our own system
@@ -46,6 +47,10 @@ public final class EopkgPlugin : Plugin
         super("deopkg", "eopkg support", "Serpent OS Developers", [
             "application/x-solus-package"
         ]);
+
+        cache = new EopkgCache();
+        // TODO: Don't do this on every startup.
+        cache.refresh();
     }
 
     override void listPackages(scope ref BackendJob job, SafeBitField!PkFilterEnum filters)
@@ -81,4 +86,8 @@ public final class EopkgPlugin : Plugin
         }();
         job.addPackages(pl);
     }
+
+private:
+
+    EopkgCache cache;
 }

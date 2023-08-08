@@ -20,7 +20,8 @@
 	"license": "Zlib",
 	"name": "deopkg",
 	"stringImportPaths": [
-		"python"
+		"python",
+		"sql"
 	],
 	"subConfigurations": {
 		"pyd": "python27"
