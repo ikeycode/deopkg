@@ -90,6 +90,11 @@ public final class EopkgPlugin : Plugin
         job.addPackages(pl);
     }
 
+    /* NOOP: Not supported */
+    override void resolve(scope ref BackendJob job, SafeBitField!PkFilterEnum, const char*[] pkgIDs) @trusted
+    {
+    }
+
 private:
 
     EopkgCache cache;
