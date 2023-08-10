@@ -196,14 +196,14 @@ public final class EopkgCache
      */
     void close() @trusted
     {
-        if (db !is null)
-        {
-            sqlite3_finalize(stmt);
-            sqlite3_finalize(searchStmt);
-            sqlite3_finalize(listStmt);
-            sqlite3_close(db);
-            db = null;
-        }
+        if (db is null)
+            return;
+
+        sqlite3_finalize(stmt);
+        sqlite3_finalize(searchStmt);
+        sqlite3_finalize(listStmt);
+        sqlite3_close(db);
+        db = null;
     }
 
     /** 
