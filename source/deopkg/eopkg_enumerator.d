@@ -28,6 +28,37 @@ import asdf;
 public alias Release = uint64_t;
 
 /** 
+ * Map a repository
+ */
+public struct EopkgRepo
+{
+    /** 
+     * Public repo name (ID)
+     */
+    string name;
+
+    /** 
+     * Remote URI
+     */
+    string uri;
+
+    /** 
+     * Enabled?
+     */
+    bool enabled;
+
+    // dfmt off
+    static alias PyWrapped = wrap_struct!(
+        EopkgRepo,
+        ModuleName!"deopkg",
+        Member!("name", Mode!"rw"),
+        Member!("uri", Mode!"rw"),
+        Member!("enabled", Mode!"rw")
+    );
+    // dfmt on
+}
+
+/** 
  * Encapsulation of an eopkg Package in as much detail as we care about.
  * As and when new fields are needed, we add them.
  */
@@ -69,6 +100,9 @@ public struct EopkgPackage
      */
     string homepage;
 
+    /** 
+     * Is the package installed?
+     */
     bool installed;
 
     // dfmt off
@@ -87,32 +121,57 @@ public struct EopkgPackage
 }
 
 /** 
+ * Force enumerator mode for the eopkg API calls
+ */
+enum EopkgMode
+{
+    packages,
+    repos,
+}
+
+/** 
  * The EopkgEnumerator encapsulates the pythonic internals of eopkg and
- * allows us to return a set of EopkgPackage objects.
+ * allows us to return a set of eopkg objects.
  *
  * Thanks to the nature of eopkg/pisi, and python2, these calls are incredibly
  * leaky and slow! To mitigate this we perform the calls under ForkWorker and
  * serialise back to the enumerator using a WalkieTalkie (`socketpair`).
  */
-public struct EopkgEnumerator
+public struct EopkgEnumerator(EopkgMode Mode)
 {
+    static if (Mode == EopkgMode.packages)
+    {
+        private enum pythonFile = "getPackages.py";
+        alias EnumType = EopkgPackage;
+    } else static if (Mode == EopkgMode.repos)
+    {
+        private enum pythonFile = "getRepos.py";
+        alias EnumType = EopkgRepo;
+    }
+
     /** 
-     * Communicate with getPackages.py
+     * Communicate with python files
      *
      * Returns: Exit code indicating success
      */
-    private static int packageEnumerator(ref WalkieTalkie comms) @trusted
+    private static int enumRunner(ref WalkieTalkie comms) @trusted
     {
         // add the eopkg module
         on_py_init({ add_module!(ModuleName!"deopkg"); });
         py_init();
-        EopkgPackage.PyWrapped();
+        static if (Mode == EopkgMode.packages)
+        {
+            EopkgPackage.PyWrapped();
+        } else static if (Mode == EopkgMode.repos)
+        {
+            EopkgRepo.PyWrapped();
+        }
 
         // Serialize all EopkgPackage from getPackages into asdf return
         auto serial = jsonSerializer(&comms.write);
-        alias getPackages = py_def!(import("getPackages.py"), "deopkg",
-                PydInputRange!EopkgPackage function());
-        serial.serializeValue(getPackages());
+        alias enumeratorFunction = py_def!(import(pythonFile), "deopkg",
+                PydInputRange!EnumType function());
+        serial.serializeValue(enumeratorFunction);
         serial.flush();
         comms.stop();
         return 0;
@@ -124,17 +183,20 @@ public struct EopkgEnumerator
     auto opSlice() @trusted
     {
         auto comms = walkieTalkie();
-        const child = runForked(&packageEnumerator, comms);
+        const child = runForked(&enumRunner, comms);
 
         return comms.reader
             .parseJsonByLine
             .map!(o => o.byElement)
             .joiner
-            .map!(e => e.deserialize!EopkgPackage);
+            .map!(e => e.deserialize!EnumType);
     }
 }
 
 /** 
  * Convenience function: Create new eopkgEnumerator
+ *
+ * Params:
+ *  mode = Style of enumerator we need
  */
-auto eopkgEnumerator() @trusted => EopkgEnumerator();
+auto eopkgEnumerator(EopkgMode mode = EopkgMode.packages)() @trusted => EopkgEnumerator!mode();
