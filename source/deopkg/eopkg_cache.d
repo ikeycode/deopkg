@@ -60,8 +60,6 @@ static auto openDB(S)(S path) @trusted if (isSomeString!S)
  */
 static auto importedStatement(string resource)(sqlite3* db)
 {
-    import std.string : format, fromStringz;
-
     sqlite3_stmt* ret;
 
     auto code = () @trusted {
