@@ -21,13 +21,13 @@ import etc.c.sqlite3;
 import std.exception : enforce;
 import std.string : fromStringz;
 import deopkg.eopkg_enumerator;
-import std.traits : isNumeric;
+import std.traits : isNumeric, isSomeString;
+import mir.parse;
 
-// TODO: Check any of this works!
-pragma(inline, true) static void bindText(sqlite3_stmt* stmt, int index, ref string str) @trusted
+pragma(inline, true) static void bindText(S)(sqlite3_stmt* stmt, int index, ref S str) @trusted
+        if (isSomeString!S)
 {
-    auto rc = sqlite3_bind_text(stmt, index, str.ptr, cast(int) str.length, null);
-    enforce(rc == SQLITE_OK);
+    enforce(sqlite3_bind_text(stmt, index, str.ptr, cast(int) str.length, null) == SQLITE_OK);
 }
 
 pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, int index, ref I datum) @trusted
@@ -49,6 +49,46 @@ pragma(inline, true) static void endTransaction(sqlite3* db) @trusted
     enforce(rc == SQLITE_OK);
 }
 
+private struct StatementEnumerator
+{
+    sqlite3_stmt* query;
+
+    EopkgPackage front()
+    {
+        return head;
+    }
+
+    void popFront() @trusted
+    {
+        ret = sqlite3_step(query);
+        if (ret != SQLITE_ROW)
+            return;
+
+        head = EopkgPackage.init;
+        head.pkgID = cast(string) sqlite3_column_text(query, 0).fromStringz;
+        head.name = cast(string) sqlite3_column_text(query, 1).fromStringz;
+        head.version_ = cast(string) sqlite3_column_text(query, 2).fromStringz;
+        head.release = sqlite3_column_int(query, 3);
+        head.homepage = cast(string) sqlite3_column_text(query, 4).fromStringz;
+        head.summary = cast(string) sqlite3_column_text(query, 5).fromStringz;
+        head.description = cast(string) sqlite3_column_text(query, 6).fromStringz;
+    }
+
+    bool empty()
+    {
+        return ret == SQLITE_DONE || ret == SQLITE_ERROR;
+    }
+
+    ref auto prime() return
+    {
+        popFront();
+        return this;
+    }
+
+    int ret;
+    EopkgPackage head;
+}
+
 /** 
  * Our EopkgCache simply wraps the internal DBs into something that is quicker to access
  * than what is available in PiSi/eopkg - giving quicker resolve / list times.
@@ -65,14 +105,28 @@ public final class EopkgCache
         auto code = () @trusted {
             return sqlite3_open("/var/lib/PackageKit/deopkg.db", &db);
         }();
-        enforce(code == 0);
+        enforce(code == SQLITE_OK);
 
         // prepared statement to bind package imports
         code = () @trusted {
             static immutable char[] zsql = import("importPkg.sql");
             return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &stmt, null);
         }();
-        enforce(code == 0);
+        enforce(code == SQLITE_OK);
+
+        // And search..
+        code = () @trusted {
+            static immutable char[] zsql = import("findByName.sql");
+            return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &searchStmt, null);
+        }();
+        enforce(code == SQLITE_OK);
+
+        // and all
+        code = () @trusted {
+            static immutable char[] zsql = import("allPkgs.sql");
+            return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &listStmt, null);
+        }();
+        enforce(code == SQLITE_OK);
     }
 
     /** 
@@ -83,6 +137,8 @@ public final class EopkgCache
         if (db !is null)
         {
             sqlite3_finalize(stmt);
+            sqlite3_finalize(searchStmt);
+            sqlite3_finalize(listStmt);
             sqlite3_close(db);
             db = null;
         }
@@ -111,13 +167,14 @@ public final class EopkgCache
 
         foreach (pkg; eopkgEnumerator[])
         {
-            int index = 0;
+            int index;
             ++nPkgs;
             sqlite3_reset(stmt);
             stmt.bindText(++index, pkg.pkgID);
             stmt.bindText(++index, pkg.name);
             stmt.bindText(++index, pkg.version_);
             stmt.bindInt(++index, pkg.release);
+            stmt.bindText(++index, pkg.homepage);
             stmt.bindText(++index, pkg.summary);
             stmt.bindText(++index, pkg.description);
             const rc = sqlite3_step(stmt);
@@ -125,6 +182,25 @@ public final class EopkgCache
         }
         stp.stop();
         writeln(stp.peek);
+    }
+
+    /** 
+     * Yield a range of packages By Name.
+     * Params:
+     *   name = Name of the package
+     */
+    auto byName(scope ref const(char[]) name) @trusted
+    {
+        sqlite3_reset(searchStmt);
+        // Bind the query
+        searchStmt.bindText(1, name);
+        return StatementEnumerator(searchStmt).prime;
+    }
+
+    auto list() @trusted
+    {
+        sqlite3_reset(listStmt);
+        return StatementEnumerator(listStmt).prime;
     }
 
 private:
@@ -147,4 +223,6 @@ private:
 
     sqlite3* db;
     sqlite3_stmt* stmt;
+    sqlite3_stmt* searchStmt;
+    sqlite3_stmt* listStmt;
 }

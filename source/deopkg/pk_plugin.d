@@ -23,6 +23,7 @@ import packagekit.pkg;
 import deopkg.eopkg_enumerator;
 import std.algorithm : filter, map, each;
 import deopkg.eopkg_cache;
+import mir.parse;
 
 /** 
  * Hook up the packagekit plugin with our own system
@@ -60,17 +61,19 @@ public final class EopkgPlugin : Plugin
     {
         PackageList pl = PackageList.create();
         () @trusted {
-            eopkgEnumerator[].filter!((eopkg) {
-                if (filters.contains(PkFilterEnum.PK_FILTER_ENUM_NOT_INSTALLED) && eopkg.installed)
-                {
-                    return false;
-                }
-                if (filters.contains(PkFilterEnum.PK_FILTER_ENUM_INSTALLED) && !eopkg.installed)
-                {
-                    return false;
-                }
-                return true;
-            })
+            cache.list
+                .filter!((eopkg) {
+                    if (filters.contains(PkFilterEnum.PK_FILTER_ENUM_NOT_INSTALLED)
+                        && eopkg.installed)
+                    {
+                        return false;
+                    }
+                    if (filters.contains(PkFilterEnum.PK_FILTER_ENUM_INSTALLED) && !eopkg.installed)
+                    {
+                        return false;
+                    }
+                    return true;
+                })
                 .map!((eopkg) {
                     auto pkg = Package.create();
                     pkg.id = eopkg.pkgID;
@@ -93,6 +96,25 @@ public final class EopkgPlugin : Plugin
     /* NOOP: Not supported */
     override void resolve(scope ref BackendJob job, SafeBitField!PkFilterEnum, const char*[] pkgIDs) @trusted
     {
+        import std.string : fromStringz;
+
+        PackageList pl = PackageList.create();
+
+        foreach (id; pkgIDs)
+        {
+            auto dID = id.fromStringz;
+            foreach (eopkg; cache.byName(dID))
+            {
+                auto pkg = Package.create();
+                pkg.id = eopkg.pkgID;
+                pkg.summary = eopkg.summary;
+                pkg.info = eopkg.installed ? PkInfoEnum.PK_INFO_ENUM_INSTALLED
+                    : PkInfoEnum.PK_INFO_ENUM_AVAILABLE;
+                pl ~= pkg;
+            }
+        }
+
+        job.addPackages(pl);
     }
 
 private:
