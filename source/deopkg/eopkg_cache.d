@@ -33,6 +33,23 @@ class SQLException : Exception
 }
 
 /** 
+ * Open an sqlite3 DB for read/writer
+ *
+ * Params:
+ *   path = Path to the DB file
+ * Returns: sqlite3* DB connection
+ * Throws: SQLException if it fails
+ */
+static auto openDB(S)(S path) @trusted if (isSomeString!S)
+{
+    sqlite3* ret;
+
+    const code = sqlite3_open(path.ptr, &ret);
+    enforce!SQLException(code == SQLITE_OK);
+    return ret;
+}
+
+/** 
  * Builds an SQLite3 prepared statement from a static import file
  *
  * Params:
@@ -41,7 +58,7 @@ class SQLException : Exception
  * Returns: an sqlite3_stmt pointer
  * Throws: SQLException if we cannot build the statement
  */
-auto importedStatement(string resource)(sqlite3* db)
+static auto importedStatement(string resource)(sqlite3* db)
 {
     import std.string : format, fromStringz;
 
@@ -167,11 +184,7 @@ public final class EopkgCache
      */
     this()
     {
-        auto code = () @trusted {
-            return sqlite3_open("/var/lib/PackageKit/deopkg.db", &db);
-        }();
-        enforce(code == SQLITE_OK);
-
+        db = openDB("/var/lib/PackageKit/deopkg.db");
         rebuildSchema();
         stmt = db.importedStatement!"importPkg.sql";
         searchStmt = db.importedStatement!"findByName.sql";
