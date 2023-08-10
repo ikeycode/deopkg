@@ -25,7 +25,7 @@ import std.traits : isNumeric, isSomeString, isBoolean;
 import mir.parse;
 
 /** 
- * Basic exception..
+ * Basic exception to indicate SQL specific problems
  */
 class SQLException : Exception
 {
@@ -39,6 +39,7 @@ class SQLException : Exception
  *   resource = Resource path
  *   db = The sqlite3 database connection
  * Returns: an sqlite3_stmt pointer
+ * Throws: SQLException if we cannot build the statement
  */
 auto importedStatement(string resource)(sqlite3* db)
 {
@@ -54,6 +55,15 @@ auto importedStatement(string resource)(sqlite3* db)
     return ret;
 }
 
+/** 
+ * Bind text to the given index in the statement
+ *
+ * Params:
+ *   stmt = sqlite3 Statement pointer
+ *   index = Field index
+ *   str = String to bind
+ * Throws: SQLException if some logic error occurs
+ */
 pragma(inline, true) static void bindText(S)(sqlite3_stmt* stmt, int index, ref S str) @trusted
         if (isSomeString!S)
 {
@@ -61,6 +71,15 @@ pragma(inline, true) static void bindText(S)(sqlite3_stmt* stmt, int index, ref 
     enforce!SQLException(rc == SQLITE_OK);
 }
 
+/** 
+ * Bind integer to the given index in the statement
+ *
+ * Params:
+ *   stmt = sqlite3 Statement pointer
+ *   index = Field index
+ *   datum = Integer to bind
+ * Throws: SQLException if some logic error occurs
+ */
 pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, int index, ref I datum) @trusted
         if (isNumeric!I || isBoolean!I)
 {
@@ -68,12 +87,26 @@ pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, int index, ref I
     enforce!SQLException(rc == SQLITE_OK);
 }
 
+/** 
+ * Begin a transaction
+ *
+ * Params:
+ *   db = sqlite3 db pointer
+ * Throws: SQLException if we cannot begin the transaction
+ */
 pragma(inline, true) static void beginTransaction(sqlite3* db) @trusted
 {
     const rc = sqlite3_exec(db, "BEGIN TRANSACTION;", null, null, null);
     enforce!SQLException(rc == SQLITE_OK);
 }
 
+/** 
+ * End a transaction
+ *
+ * Params:
+ *   db = sqlite3 db pointer
+ * Throws: SQLException if we failed to commit the transaction
+ */
 pragma(inline, true) static void endTransaction(sqlite3* db) @trusted
 {
     const rc = sqlite3_exec(db, "COMMIT;", null, null, null);
