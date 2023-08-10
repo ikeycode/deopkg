@@ -107,6 +107,9 @@ public final class EopkgCache
         }();
         enforce(code == SQLITE_OK);
 
+        // DROPS :O
+        rebuildSchema();
+
         // prepared statement to bind package imports
         code = () @trusted {
             static immutable char[] zsql = import("importPkg.sql");
@@ -160,7 +163,6 @@ public final class EopkgCache
         scope (exit)
             printf(" -> end enumerate, %d packages found. Resume normal startup\n", cast(int) nPkgs);
 
-        rebuildSchema();
         db.beginTransaction();
         scope (exit)
             db.endTransaction();
