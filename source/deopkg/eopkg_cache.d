@@ -18,35 +18,66 @@ module deopkg.eopkg_cache;
 @safe:
 
 import etc.c.sqlite3;
-import std.exception : enforce;
+import std.exception : enforce, basicExceptionCtors;
 import std.string : fromStringz;
 import deopkg.eopkg_enumerator;
 import std.traits : isNumeric, isSomeString, isBoolean;
 import mir.parse;
 
+/** 
+ * Basic exception..
+ */
+class SQLException : Exception
+{
+    mixin basicExceptionCtors;
+}
+
+/** 
+ * Builds an SQLite3 prepared statement from a static import file
+ *
+ * Params:
+ *   resource = Resource path
+ *   db = The sqlite3 database connection
+ * Returns: an sqlite3_stmt pointer
+ */
+auto importedStatement(string resource)(sqlite3* db)
+{
+    import std.string : format, fromStringz;
+
+    sqlite3_stmt* ret;
+
+    auto code = () @trusted {
+        static immutable zsql = import(resource);
+        return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &ret, null);
+    }();
+    enforce!SQLException(code == SQLITE_OK);
+    return ret;
+}
+
 pragma(inline, true) static void bindText(S)(sqlite3_stmt* stmt, int index, ref S str) @trusted
         if (isSomeString!S)
 {
-    enforce(sqlite3_bind_text(stmt, index, str.ptr, cast(int) str.length, null) == SQLITE_OK);
+    const rc = sqlite3_bind_text(stmt, index, str.ptr, cast(int) str.length, null);
+    enforce!SQLException(rc == SQLITE_OK);
 }
 
 pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, int index, ref I datum) @trusted
         if (isNumeric!I || isBoolean!I)
 {
     const rc = sqlite3_bind_int(stmt, index, cast(int) datum);
-    enforce(rc == SQLITE_OK);
+    enforce!SQLException(rc == SQLITE_OK);
 }
 
 pragma(inline, true) static void beginTransaction(sqlite3* db) @trusted
 {
     const rc = sqlite3_exec(db, "BEGIN TRANSACTION;", null, null, null);
-    enforce(rc == SQLITE_OK);
+    enforce!SQLException(rc == SQLITE_OK);
 }
 
 pragma(inline, true) static void endTransaction(sqlite3* db) @trusted
 {
     const rc = sqlite3_exec(db, "COMMIT;", null, null, null);
-    enforce(rc == SQLITE_OK);
+    enforce!SQLException(rc == SQLITE_OK);
 }
 
 private struct StatementEnumerator
@@ -108,29 +139,10 @@ public final class EopkgCache
         }();
         enforce(code == SQLITE_OK);
 
-        // DROPS :O
         rebuildSchema();
-
-        // prepared statement to bind package imports
-        code = () @trusted {
-            static immutable char[] zsql = import("importPkg.sql");
-            return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &stmt, null);
-        }();
-        enforce(code == SQLITE_OK);
-
-        // And search..
-        code = () @trusted {
-            static immutable char[] zsql = import("findByName.sql");
-            return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &searchStmt, null);
-        }();
-        enforce(code == SQLITE_OK);
-
-        // and all
-        code = () @trusted {
-            static immutable char[] zsql = import("allPkgs.sql");
-            return sqlite3_prepare_v2(db, zsql.ptr, zsql.length, &listStmt, null);
-        }();
-        enforce(code == SQLITE_OK);
+        stmt = db.importedStatement!"importPkg.sql";
+        searchStmt = db.importedStatement!"findByName.sql";
+        listStmt = db.importedStatement!"allPkgs.sql";
     }
 
     /** 
