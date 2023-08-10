@@ -21,7 +21,7 @@ import etc.c.sqlite3;
 import std.exception : enforce;
 import std.string : fromStringz;
 import deopkg.eopkg_enumerator;
-import std.traits : isNumeric, isSomeString;
+import std.traits : isNumeric, isSomeString, isBoolean;
 import mir.parse;
 
 pragma(inline, true) static void bindText(S)(sqlite3_stmt* stmt, int index, ref S str) @trusted
@@ -31,7 +31,7 @@ pragma(inline, true) static void bindText(S)(sqlite3_stmt* stmt, int index, ref 
 }
 
 pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, int index, ref I datum) @trusted
-        if (isNumeric!I)
+        if (isNumeric!I || isBoolean!I)
 {
     const rc = sqlite3_bind_int(stmt, index, cast(int) datum);
     enforce(rc == SQLITE_OK);
@@ -72,6 +72,7 @@ private struct StatementEnumerator
         head.homepage = cast(string) sqlite3_column_text(query, 4).fromStringz;
         head.summary = cast(string) sqlite3_column_text(query, 5).fromStringz;
         head.description = cast(string) sqlite3_column_text(query, 6).fromStringz;
+        head.installed = cast(bool) sqlite3_column_int(query, 7);
     }
 
     bool empty()
@@ -179,6 +180,7 @@ public final class EopkgCache
             stmt.bindText(++index, pkg.homepage);
             stmt.bindText(++index, pkg.summary);
             stmt.bindText(++index, pkg.description);
+            stmt.bindInt(++index, pkg.installed);
             const rc = sqlite3_step(stmt);
             enforce(rc == SQLITE_DONE);
         }

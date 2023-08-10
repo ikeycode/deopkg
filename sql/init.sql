@@ -9,7 +9,8 @@ CREATE TABLE pkgCandidates (
     Release     INT,
     Homepage    TEXT,
     Summary     TEXT,
-    Description TEXT
+    Description TEXT,
+    Installed   INT
 );
 
 CREATE INDEX pkgNameIndex on pkgCandidates ( Name );
