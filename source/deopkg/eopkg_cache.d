@@ -24,16 +24,16 @@ import deopkg.eopkg_enumerator;
 import std.traits : isNumeric;
 
 // TODO: Check any of this works!
-pragma(inline, true) static void bindText(sqlite3_stmt* stmt, ref int index, ref string str) @trusted
+pragma(inline, true) static void bindText(sqlite3_stmt* stmt, int index, ref string str) @trusted
 {
-    auto rc = sqlite3_bind_text(stmt, ++index, str.ptr, cast(int) str.length, null);
+    auto rc = sqlite3_bind_text(stmt, index, str.ptr, cast(int) str.length, null);
     enforce(rc == SQLITE_OK);
 }
 
-pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, ref int index, ref I datum) @trusted
+pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, int index, ref I datum) @trusted
         if (isNumeric!I)
 {
-    const rc = sqlite3_bind_int(stmt, ++index, cast(int) datum);
+    const rc = sqlite3_bind_int(stmt, index, cast(int) datum);
     enforce(rc == SQLITE_OK);
 }
 
@@ -114,12 +114,12 @@ public final class EopkgCache
             int index = 0;
             ++nPkgs;
             sqlite3_reset(stmt);
-            stmt.bindText(index, pkg.pkgID);
-            stmt.bindText(index, pkg.name);
-            stmt.bindText(index, pkg.version_);
+            stmt.bindText(++index, pkg.pkgID);
+            stmt.bindText(++index, pkg.name);
+            stmt.bindText(++index, pkg.version_);
             stmt.bindInt(++index, pkg.release);
-            stmt.bindText(index, pkg.summary);
-            stmt.bindText(index, pkg.description);
+            stmt.bindText(++index, pkg.summary);
+            stmt.bindText(++index, pkg.description);
             const rc = sqlite3_step(stmt);
             enforce(rc == SQLITE_DONE);
         }
