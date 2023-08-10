@@ -21,6 +21,33 @@ import etc.c.sqlite3;
 import std.exception : enforce;
 import std.string : fromStringz;
 import deopkg.eopkg_enumerator;
+import std.traits : isNumeric;
+
+// TODO: Check any of this works!
+pragma(inline, true) static void bindText(sqlite3_stmt* stmt, ref int index, ref string str) @trusted
+{
+    auto rc = sqlite3_bind_text(stmt, ++index, str.ptr, cast(int) str.length, null);
+    enforce(rc == SQLITE_OK);
+}
+
+pragma(inline, true) static void bindInt(I)(sqlite3_stmt* stmt, ref int index, ref I datum) @trusted
+        if (isNumeric!I)
+{
+    const rc = sqlite3_bind_int(stmt, ++index, cast(int) datum);
+    enforce(rc == SQLITE_OK);
+}
+
+pragma(inline, true) static void beginTransaction(sqlite3* db) @trusted
+{
+    const rc = sqlite3_exec(db, "BEGIN TRANSACTION;", null, null, null);
+    enforce(rc == SQLITE_OK);
+}
+
+pragma(inline, true) static void endTransaction(sqlite3* db) @trusted
+{
+    const rc = sqlite3_exec(db, "COMMIT;", null, null, null);
+    enforce(rc == SQLITE_OK);
+}
 
 /** 
  * Our EopkgCache simply wraps the internal DBs into something that is quicker to access
@@ -67,18 +94,37 @@ public final class EopkgCache
     void refresh() @trusted
     {
         import core.stdc.stdio : puts, printf;
+        import std.datetime.stopwatch : StopWatch, AutoStart;
+
+        auto stp = StopWatch(AutoStart.yes);
+        import std.stdio : writeln;
 
         puts(" -> begin enumerate");
         ulong nPkgs;
         scope (exit)
-            printf(" -> end enumerate, %d packages found. Resume normal startup\n", nPkgs);
+            printf(" -> end enumerate, %d packages found. Resume normal startup\n", cast(int) nPkgs);
 
         rebuildSchema();
+        db.beginTransaction();
+        scope (exit)
+            db.endTransaction();
+
         foreach (pkg; eopkgEnumerator[])
         {
-            if (!pkg.installed)
-                nPkgs += 1;
+            int index = 0;
+            ++nPkgs;
+            sqlite3_reset(stmt);
+            stmt.bindText(index, pkg.pkgID);
+            stmt.bindText(index, pkg.name);
+            stmt.bindText(index, pkg.version_);
+            stmt.bindInt(++index, pkg.release);
+            stmt.bindText(index, pkg.summary);
+            stmt.bindText(index, pkg.description);
+            const rc = sqlite3_step(stmt);
+            enforce(rc == SQLITE_DONE);
         }
+        stp.stop();
+        writeln(stp.peek);
     }
 
 private:
