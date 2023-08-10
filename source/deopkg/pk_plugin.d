@@ -93,7 +93,16 @@ public final class EopkgPlugin : Plugin
         job.addPackages(pl);
     }
 
-    /* NOOP: Not supported */
+    /* List eopkg repos with their URI as the description */
+    override void listRepos(scope ref BackendJob job, SafeBitField!PkFilterEnum filters) @trusted
+    {
+        foreach (repo; eopkgEnumerator!(EopkgMode.repos))
+        {
+            job.addRepo(repo.name, repo.uri, repo.enabled);
+        }
+    }
+
+    /* Resolve a package */
     override void resolve(scope ref BackendJob job, SafeBitField!PkFilterEnum, const char*[] pkgIDs) @trusted
     {
         import std.string : fromStringz;
