@@ -29,3 +29,28 @@ the fork child is disposed of and memory is returned immediately to the kernel. 
 and this project to minimise any use of a garbage collector and ensure minimal footprint over time.
 
 Note that caching is employed for package lists using an `sqlite3` database to minimise the lookup cost for `resolve` and `get-packages`.
+
+### Testing
+
+Build the plugin using `dub`. If available, you should enable `sse4.2` for SIMD optimisations in asdf for the IPC mechanism.
+
+```bash
+$ DFLAGS="-mcpu=native -O3 -mattr=+sse4.2 -release" dub build -f
+```
+
+The `.so` should then be dropped (or linked, when testing) into the PackageKit module directory:
+
+    /usr/lib64/packagekit-backend/libpk_backend_deopkg.so
+    
+Finally, run `packagekitd`:
+
+    $ sudo /usr/libexec/packagekitd -v
+
+Verify that the `deopkg` plugin is being used.
+
+```bash
+$ pkcon backend-details                                                      ─╯
+Name:		deopkg
+Description:	eopkg support
+Author:	Serpent OS Developers
+```
