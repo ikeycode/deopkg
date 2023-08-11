@@ -30,6 +30,10 @@ and this project to minimise any use of a garbage collector and ensure minimal f
 
 Note that caching is employed for package lists using an `sqlite3` database to minimise the lookup cost for `resolve` and `get-packages`.
 
+As a final note, this plugin is an *out of tree* plugin build for PackageKit. Unfortunately for C projects, PackageKit has been designed for
+all backend modules to be built *in tree*. For `packagekit-d`, we simply encapsulate the minimal `extern(C)` interface in idiomatic D wrappers
+and rely on `@weak` symbol linkage that will resolve when PackageKit calls `dlopen()` on `libpk_backend_deopkg.so`.
+
 ### Testing
 
 Build the plugin using `dub`. If available, you should enable `sse4.2` for SIMD optimisations in asdf for the IPC mechanism.
