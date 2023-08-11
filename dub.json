@@ -10,11 +10,12 @@
 		},
 		"pyd": "~>0.14.4"
 	},
-	"description": "Encapsulation of eopkg API",
+	"description": "PackageKit plugin for eopkg",
 	"dflags-ldc": [
-		"--checkaction=C",
 		"--fvisibility=hidden",
-		"-L-Wl,--version-script=symbols.ver"
+		"-L-Wl,--version-script=symbols.ver",
+		"-link-defaultlib-shared=true",
+		"-flto=thin"
 	],
 	"libs": ["sqlite3"],
 	"license": "Zlib",
